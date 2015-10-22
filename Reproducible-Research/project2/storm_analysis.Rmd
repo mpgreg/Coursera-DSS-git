@@ -1,166 +1,102 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
+title: "Analysis of Severe Weather Events for Human and Economic Impact"
 output:
   html_document:
     keep_md: true
 ---
-
 ```{r setoptions,echo = FALSE}
 library(knitr)
 opts_chunk$set(echo = TRUE, restult = "hide")
 ```
 
+##Synopsis: 
+Storms and other severe weather events can cause both public health and economic problems for communities and municipalities. Many severe events can result in fatalities, injuries, and property damage, and preventing such outcomes to the extent possible is a key concern.  This project involves exploring the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. This database tracks characteristics of major storms and weather events in the United States, including when and where they occur, as well as estimates of any fatalities, injuries, and property damage.
 
-##Introduction
+##Data Processing: 
+The NOAA Storm Event Database (herein, database) records 37 variables on storm events from 1950 to present day.  This project will use [a subset of the data](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2) with nearly 1 million storm events from April 1950 to November 2011.  In addition to the dataset [Documentation](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf) and [FAQs](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf) are available.
 
-This project analyses personal movement using activity monitoring data from an anonymous individual. The data consists of two months of data collected during the months of October and November, 2012 and include the number of steps taken in 5 minute intervals each day.  The data, downloaded from https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip includes 17,568 observations (5 minutes intervals) of the following variables in csv format:
+###Start by downloading and reading in the database file.
 
--steps: Number of steps taking in a 5-minute interval (missing values are coded as NA)  
--date: The date on which the measurement was taken in YYYY-MM-DD format  
--interval: Identifier for the 5-minute interval in which measurement was taken  
-  
-  
-  
-##Loading and preprocessing the data
-1. Load the data
-
-```{r loaddata, cache = TRUE}
-fileURL <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip"
-activityFile <- "activity.csv"
+```{r cache=TRUE}
+fileURL <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
 tempFile <- tempfile()
 if(capabilities("libcurl")) {
         download.file(fileURL, tempFile, method = "libcurl")        
 } else {
         download.file(fileURL, tempFile)
 }
-activityDF <- read.csv(unz(tempFile, activityFile))
+```
+
+- To cut down on processing and cleaning time we will import only columns relating to the type of event, fatalities, injuries, and property damage.
+```{r cache=TRUE}
+#Grab the headers list.
+headers <- read.csv(tempFile, nrows = 1)
+#Ignore all columns except the ones we specify.
+headers[,] <- c(rep("NULL", ncol(headers)))
+headers[c("FATALITIES", "INJURIES", "PROPDMG", "CROPDMG")] <- "numeric"
+headers[c("EVTYPE", "PROPDMGEXP", "CROPDMGEXP")] <- "factor"
+#Read in the specified columns
+StormDF <- read.table(tempFile, header = TRUE, sep = ",", quote = "\"", fill = TRUE, comment.char = "", colClasses = headers)
+
 unlink(tempFile)
 ```
 
-2. Process/transform the data into a format suitable for your analysis
-```{r preprocessdata}
-#set the date data type
-activityDF$date <- as.Date(activityDF$date)
-```
-
-
-
-##What is mean total number of steps taken per day?
-1. Calculate the total number of steps taken per day (ignoring missing values)
-```{r stepsum}
-sumStepsByDay <- aggregate(steps ~ date, FUN=sum, data=activityDF, na.action = "na.omit")
-
-```
-
-2. Make a histogram of the total number of steps taken each day
-
-```{r stepshist, fig.height=4}
-hist(sumStepsByDay$steps, main = "Histogram of Total Steps Taken per Day (ignoring missing values)", xlab = "steps")
-```
-
-3. Calculate and report the mean and median total number of steps taken per day
-
-```{r showtable}, results='asis'}
-library(xtable)
-meanSteps <- round(mean(sumStepsByDay$steps))
-medianSteps <- round(median(sumStepsByDay$steps))
-xt <- xtable(matrix(c(meanSteps, medianSteps), dimnames = list(c("Mean","Median"),c("Steps"))), digits = 0)
-print(xt, type="html")
-```
-
-
-
-##What is the average daily activity pattern?
-
-1. Make a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
-```{r showplot, fig.height=4}
-meanStepsByInterval <- aggregate(steps ~ interval, FUN=mean, data=activityDF, na.action = "na.omit")
-plot(meanStepsByInterval, type="l",
-     main = "Average Steps Taken per 5-min Interval", 
-     ylab = "Averages steps across all days",
-     xlab = "5-min Interval")
-```
-
-2. Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
-```{r fiveminmax}
-maxMeanSteps <- meanStepsByInterval[which.max(meanStepsByInterval$steps),]
-```
-
-On average, the 5-minute interval `r maxMeanSteps$interval` contains the most (`r round(maxMeanSteps$steps)`) steps.  
-
-
-
-##Imputing missing values
-
-Note that there are a number of days/intervals where there are missing values (coded as NA). The presence of missing days may introduce bias into some calculations or summaries of the data.
-
-1. Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)
-
+###Preprocess the data to look for anomalies and obvious errors.
+- Check if there are missing values.
 ```{r}
-totalNAs <- sum(is.na(activityDF))
+anyNA(StormDF)
 ```
 
-There are `r totalNAs` rows in the activity dataset containing missing (NA) values.  
-
-2. Devise a strategy for filling in all of the missing values in the dataset. The strategy does not need to be sophisticated. For example, you could use the mean/median for that day, or the mean for that 5-minute interval, etc.
-
+- Are the Property Damage and Crop Damage exponent fields accurate?
 ```{r}
-#Create a new column in the dataset with the mean for that 5-minute interval across all days.
-activityDF <- merge(activityDF, meanStepsByInterval, by = "interval")
-colnames(activityDF) <- c("interval", "steps", "date", "dailyMeanSteps")
+unique(StormDF$CROPDMGEXP)
+unique(StormDF$PROPDMGEXP)
 ```
 
-3. Create a new dataset that is equal to the original dataset but with the missing data filled in.
-
+- Does the number of incorrect values in "exponent" fields represent a statistically relevant set?
 ```{r}
-activityDF[is.na(activityDF$steps),]$steps <- activityDF[is.na(activityDF$steps),]$dailyMeanSteps
+allowedExp <- c("k", "K", "M", "m", "B", "b", "0", "0.0", "0.00", NA, "")
+percErrors <- round(nrow(subset(StormDF, !PROPDMGEXP %in% allowedExp | !CROPDMGEXP %in% allowedExp)) / nrow(StormDF), 5)*100
 ```
 
-4. Make a histogram of the total number of steps taken each day and Calculate and report the mean and median total number of steps taken per day. Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
-```{r showimputed, fig.height=4, results='asis'}
-imputedSumStepsByDay <- aggregate(steps ~ date, FUN=sum, data=activityDF)
-hist(imputedSumStepsByDay$steps, main = "Histogram of Total Steps Taken per Day (with imputed missing values)", xlab = "steps")
-imputedMeanSteps <- round(mean(imputedSumStepsByDay$steps))
-imputedMedianSteps <- round(median(imputedSumStepsByDay$steps))
-imputedXT <- xtable(matrix(c(imputedMeanSteps, imputedMedianSteps), dimnames = list(c("Imputed Mean","Imputed Median"),c("Steps"))), digits = 0)
-print(imputedXT, type="html")
-```
-```{r provideresults, echo=FALSE}
-if(!meanSteps==imputedMeanSteps) {
-        cat(sprintf("As a result of the imputation the average steps per day changed from %s to %s.\n", meanSteps, imputedMeanSteps))
-} else {
-        cat(sprintf("The average steps per day did not change as a result of the imputation."))
-}
-
-if(!medianSteps==imputedMedianSteps) {
-        cat(sprintf("As a result of the imputation the median steps per day changed from %s to %s.\n", medianSteps, imputedMedianSteps))
-} else {
-        cat(sprintf("The median steps per day did not change as a result of the imputation."))
-}
-```
-
-For this dataset imputaion using daily average did not have a significant impact on analysis.
+Events with erroneous exponent fields represent `r percErrors` percent of the data.
 
 
-
-##Are there differences in activity patterns between weekdays and weekends?
-
-1. Create a new factor variable in the dataset with two levels -- "weekday" and "weekend" indicating whether a given date is a weekday or weekend day.
-```{r}
-weekendNames <- c("Saturday", "Sunday")
-activityDF$Type.of.Day <- as.factor(ifelse(weekdays(activityDF$date) %in% weekendNames,"weekend", "weekday"))
-
+- Property and crop damage are reported with dollar amount and exponential units in separate columns.  Calculate the damage cost by multiplying the exponents and combining.
+```{r cache=TRUE}
+StormDF["PROPDMG.FULL"] <- StormDF["PROPDMG"]
+StormDF[StormDF$PROPDMGEXP %in% c("k","K"),"PROPDMG.FULL"] <- 
+        StormDF[StormDF$PROPDMGEXP %in% c("k","K"),"PROPDMG"]*1000
+StormDF[StormDF$PROPDMGEXP %in% c("m","M"),"PROPDMG.FULL"] <- 
+        StormDF[StormDF$PROPDMGEXP %in% c("m","M"),"PROPDMG"]*1000000
+StormDF[StormDF$PROPDMGEXP %in% c("b","B"),"PROPDMG.FULL"] <- 
+        StormDF[StormDF$PROPDMGEXP %in% c("b","B"),"PROPDMG"]*1000000000
+#Do the same for crop damage
+StormDF["CROPDMG.FULL"] <- StormDF["CROPDMG"]
+StormDF[StormDF$CROPDMGEXP %in% c("k","K"),"CROPDMG.FULL"] <- 
+        StormDF[StormDF$CROPDMGEXP %in% c("k","K"),"CROPDMG"]*1000
+StormDF[StormDF$CROPDMGEXP %in% c("m","M"),"CROPDMG.FULL"] <- 
+        StormDF[StormDF$CROPDMGEXP %in% c("m","M"),"CROPDMG"]*1000000
+StormDF[StormDF$CROPDMGEXP %in% c("b","B"),"CROPDMG.FULL"] <- 
+        StormDF[StormDF$CROPDMGEXP %in% c("b","B"),"CROPDMG"]*1000000000
 ```
 
-2. Make a panel plot containing a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis). 
-
-```{r plotbydaytype}
-library(lattice)
-meanStepsByDayType <- aggregate(steps ~ interval + Type.of.Day, FUN=mean, data=activityDF, na.action = "na.omit")
-xyplot(steps ~ interval | Type.of.Day, meanStepsByDayType, 
-       type = "l", 
-       layout = c(1,2), 
-       main = "Mean Steps Taken per Interval by Day Type", 
-       ylab = "Number of Steps (mean)")
+- Add columns to summarize economic and personal health impact.
+```{r cache=TRUE}
+StormDF["Economic.Impact"] <- StormDF$PROPDMG.FULL + StormDF$CROPDMG.FULL
+StormDF["Health.Impact"] <- StormDF$FATALITIES + StormDF$INJURIES
 ```
 
+
+
+
+
+##Results: in which your results are presented.
+
+You may have other sections in your analysis, but Data Processing and Results are required.
+
+The analysis document must have at least one figure containing a plot.
+
+Your analyis must have no more than three figures. Figures may have multiple plots in them (i.e. panel plots), but there cannot be more than three figures total.
+
+You must show all your code for the work in your analysis document. This may make the document a bit verbose, but that is okay. In general, you should ensure that echo = TRUE for every code chunk (this is the default setting in knitr).

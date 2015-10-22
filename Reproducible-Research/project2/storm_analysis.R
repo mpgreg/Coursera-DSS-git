@@ -55,7 +55,9 @@ anyNA(StormDF)
 
 ##Are the Property Damage and Crop Damage exponent fields accurate?  If not do the incorrect ones represent a statistically relevant set?
 allowedExp <- c("k", "K", "M", "m", "B", "b", "0", "0.0", "0.00", NA, "")
-nrow(subset(StormDF, !PROPDMGEXP %in% allowedExp | !CROPDMGEXP %in% allowedExp))
+percErrors <- round(nrow(subset(StormDF, !PROPDMGEXP %in% allowedExp | !CROPDMGEXP %in% allowedExp)) / nrow(StormDF), 5)*100
+cat(sprintf("Events with erroneous exponent fields represent %s percent of the data.\n", percErrors))
+
 
 ##Calculate the full property damage cost by multiplying the exponent
 StormDF["PROPDMG.FULL"] <- StormDF["PROPDMG"]
@@ -67,107 +69,19 @@ StormDF["CROPDMG.FULL"] <- StormDF["CROPDMG"]
 StormDF[StormDF$CROPDMGEXP %in% c("k","K"),"CROPDMG.FULL"] <- StormDF[StormDF$CROPDMGEXP %in% c("k","K"),"CROPDMG"]*1000
 StormDF[StormDF$CROPDMGEXP %in% c("m","M"),"CROPDMG.FULL"] <- StormDF[StormDF$CROPDMGEXP %in% c("m","M"),"CROPDMG"]*1000000
 StormDF[StormDF$CROPDMGEXP %in% c("b","B"),"CROPDMG.FULL"] <- StormDF[StormDF$CROPDMGEXP %in% c("b","B"),"CROPDMG"]*1000000000
+
 #Add Property and Crop Damage
-StormDF["TOTALDMG"] <- StormDF$PROPDMG.FULL + StormDF$CROPDMG.FULL
+StormDF["Economic.Impact"] <- StormDF$PROPDMG.FULL + StormDF$CROPDMG.FULL
 
+#Add Fatalities and Injuries to summarize personal health impact.
+StormDF["Health.Impact"] <- StormDF$FATALITIES + StormDF$INJURIES
 
+summary(StormDF$Economic.Impact)
+summary(StormDF$Health.Impact)
 
-##change zero values in steps to NA
-##is.na(activityDF$steps) <- !activityDF$steps
+StormDF[which.max(StormDF$Economic.Impact),]
 
-##What is mean total number of steps taken per day?
-##1. Calculate the total number of steps taken per day
-##sumStepsByDay <- tapply(activityDF$steps, activityDF$date, FUN=sum, na.rm=TRUE)
-
-sumStepsByDay <- aggregate(steps ~ date, FUN=sum, data=activityDF, na.action = "na.omit")
-
-##2. Make a histogram of the total number of steps taken each day (ignoring missing values)
-hist(sumStepsByDay$steps, main = "Histogram of Total Steps Taken per Day (ignoring missing values)", xlab = "steps")
-
-##3. Calculate and report the mean and median total number of steps taken per day
-library(xtable)
-meanSteps <- round(mean(sumStepsByDay$steps))
-medianSteps <- round(median(sumStepsByDay$steps))
-xt <- xtable(matrix(c(meanSteps, medianSteps), dimnames = list(c("Mean","Median"),c("Steps"))), digits = 0)
-print(xt, type="html")
-
-##What is the average daily activity pattern?
-#1. Make a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all days (y-axis)
-##meanStepsByInterval <- round(tapply(activityDF$steps, activityDF$interval, FUN=mean, na.rm=TRUE), digits = 2)
-
-meanStepsByInterval <- aggregate(steps ~ interval, FUN=mean, data=activityDF, na.action = "na.omit")
-plot(meanStepsByInterval, type="l",
-     main = "Average Steps Taken per 5-min Interval", 
-     ylab = "Averages steps across all days",
-     xlab = "5-min Interval")
-
-#2. Which 5-minute interval, on average across all the days in the dataset, contains the maximum number of steps?
-##maxMeanSteps <- meanStepsByInterval[which.max(meanStepsByInterval)]
-
-maxMeanSteps <- meanStepsByInterval[which.max(meanStepsByInterval$steps),]
-cat(sprintf("On average, the 5-minute interval %s contains the most (%s) steps.\n", maxMeanSteps$interval, round(maxMeanSteps$steps)))
-
-##Imputing missing values
-
-#Note that there are a number of days/intervals where there are missing values (coded as NA). The presence of missing days may introduce bias into some calculations or summaries of the data.
-#1. Calculate and report the total number of missing values in the dataset (i.e. the total number of rows with NAs)
-totalNAs <- sum(is.na(activityDF))
-cat(sprintf("There are %s rows in the activity dataset containing missing (NA) values.\n", totalNAs))
-
-#2. Create a new column in the dataset with the mean for that 5-minute interval across all days.
-
-activityDF <- merge(activityDF, meanStepsByInterval, by = "interval")
-colnames(activityDF) <- c("interval", "steps", "date", "Mean.Daily.Steps")
-
-#3. Create a new dataset that is equal to the original dataset but with the missing data filled in.
-
-activityDF[is.na(activityDF$steps),]$steps <- activityDF[is.na(activityDF$steps),]$Mean.Daily.Steps
-
-
-#4. Make a histogram of the total number of steps taken each day and calculate and report the mean and median total number of steps taken per day. 
-#Do these values differ from the estimates from the first part of the assignment? What is the impact of imputing missing data on the estimates of the total daily number of steps?
-
-imputedSumStepsByDay <- aggregate(steps ~ date, FUN=sum, data=activityDF)
-hist(imputedSumStepsByDay$steps, main = "Histogram of Total Steps Taken per Day (with imputed missing values)", xlab = "steps")
-imputedMeanSteps <- round(mean(imputedSumStepsByDay$steps))
-imputedMedianSteps <- round(median(imputedSumStepsByDay$steps))
-imputedXT <- xtable(matrix(c(imputedMeanSteps, imputedMedianSteps), dimnames = list(c("Imputed Mean","Imputed Median"),c("Steps"))), digits = 0)
-print(imputedXT, type="html")
-
-if(!meanSteps==imputedMeanSteps) {
-        cat(sprintf("As a result of the imputation the average steps per day changed from %s to %s.\n", meanSteps, imputedMeanSteps))
-} else {
-        cat(sprintf("The average steps per day did not change as a result of the imputation."))
-}
-
-if(!medianSteps==imputedMedianSteps) {
-        cat(sprintf("As a result of the imputation the median steps per day changed from %s to %s.\n", medianSteps, imputedMedianSteps))
-} else {
-        cat(sprintf("The median steps per day did not change as a result of the imputation."))
-}
-#For this dataset imputing using daily average did not have a significant impact on analysis.
-
-
-##Are there differences in activity patterns between weekdays and weekends?
-
-##For this part the weekdays() function may be of some help here. Use the dataset with the filled-in missing values for this part.
-
-#1. Create a new factor variable in the dataset with two levels -- "weekday" and "weekend" indicating whether a given date is a weekday or weekend day.
-
-##weekdayNames <- c("Monday", "Tuesday", "Wednesday", "Thursday", "Friday")
-weekendNames <- c("Saturday", "Sunday")
-activityDF$Type.of.Day <- as.factor(ifelse(weekdays(activityDF$date) %in% weekendNames,"weekend", "weekday"))
-
-
-#2. Make a panel plot containing a time series plot (i.e. type = "l") of the 5-minute interval (x-axis) and the average number of steps taken, averaged across all weekday days or weekend days (y-axis). 
-        
-library(lattice)
-meanStepsByDayType <- aggregate(steps ~ interval + Type.of.Day, FUN=mean, data=activityDF, na.action = "na.omit")
-xyplot(steps ~ interval | Type.of.Day, meanStepsByDayType, 
-       type = "l", 
-       layout = c(1,2), 
-       main = "Mean Steps Taken per Interval by Day Type", 
-       ylab = "Number of Steps (mean)")
+StormDF[which.max(StormDF$Health.Impact),]
 
 
 
