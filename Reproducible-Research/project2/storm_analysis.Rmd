@@ -17,7 +17,7 @@ The NOAA Storm Event Database (herein, database) records 37 variables on storm e
 
 ###Start by downloading and reading in the database file.
 
-```{r cache=TRUE}
+```{r}
 fileURL <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
 tempFile <- tempfile()
 if(capabilities("libcurl")) {
@@ -34,14 +34,32 @@ headers <- read.csv(tempFile, nrows = 1)
 #Ignore all columns except the ones we specify.
 headers[,] <- c(rep("NULL", ncol(headers)))
 headers[c("FATALITIES", "INJURIES", "PROPDMG", "CROPDMG")] <- "numeric"
-headers[c("EVTYPE", "PROPDMGEXP", "CROPDMGEXP")] <- "factor"
+headers[c("BGN_DATE", "PROPDMGEXP", "CROPDMGEXP")] <- "factor"
+headers[c("EVTYPE")] <- "character"
 #Read in the specified columns
 StormDF <- read.table(tempFile, header = TRUE, sep = ",", quote = "\"", fill = TRUE, comment.char = "", colClasses = headers)
-
 unlink(tempFile)
+
 ```
 
-###Preprocess the data to look for anomalies and obvious errors.
+###Clean and preprocess the data to look for anomalies and obvious errors.
+- Assign better column names.
+```{r}
+names(StormDF)[names(StormDF) == "EVTYPE"] <- "Event.Type"
+names(StormDF)[names(StormDF) == "BGN_DATE"] <- "Begin.Date"
+names(StormDF)[names(StormDF) == "FATALITIES"] <- "Fatalities"
+names(StormDF)[names(StormDF) == "INJURIES"] <- "Injuries"
+names(StormDF)[names(StormDF) == "PROPDMG"] <- "Property.Damage"
+names(StormDF)[names(StormDF) == "PROPDMGEXP"] <- "Property.Damage.Exponent"
+names(StormDF)[names(StormDF) == "CROPDMG"] <- "Crop.Damage"
+names(StormDF)[names(StormDF) == "CROPDMGEXP"] <- "Crop.Damage.Exponent"
+```
+
+-Drop all rows with no Health or Economic loss
+```{r}
+StormDF <- StormDF[!rowSums(StormDF[c("Fatalities","Injuries","Property.Damage","Crop.Damage")])==0,]
+```
+
 - Check if there are missing values.
 ```{r}
 anyNA(StormDF)
@@ -52,15 +70,13 @@ anyNA(StormDF)
 unique(StormDF$CROPDMGEXP)
 unique(StormDF$PROPDMGEXP)
 ```
-
-- Does the number of incorrect values in "exponent" fields represent a statistically relevant set?
+-- Does the number of incorrect values in "exponent" fields represent a statistically relevant set?
 ```{r}
 allowedExp <- c("k", "K", "M", "m", "B", "b", "0", "0.0", "0.00", NA, "")
 percErrors <- round(nrow(subset(StormDF, !PROPDMGEXP %in% allowedExp | !CROPDMGEXP %in% allowedExp)) / nrow(StormDF), 5)*100
 ```
 
 Events with erroneous exponent fields represent `r percErrors` percent of the data.
-
 
 - Property and crop damage are reported with dollar amount and exponential units in separate columns.  Calculate the damage cost by multiplying the exponents and combining.
 ```{r cache=TRUE}
@@ -81,7 +97,7 @@ StormDF[StormDF$CROPDMGEXP %in% c("b","B"),"CROPDMG.FULL"] <-
         StormDF[StormDF$CROPDMGEXP %in% c("b","B"),"CROPDMG"]*1000000000
 ```
 
-- Add columns to summarize economic and personal health impact.
+-- Add columns to summarize economic and personal health impact.
 ```{r cache=TRUE}
 StormDF["Economic.Impact"] <- StormDF$PROPDMG.FULL + StormDF$CROPDMG.FULL
 StormDF["Health.Impact"] <- StormDF$FATALITIES + StormDF$INJURIES
