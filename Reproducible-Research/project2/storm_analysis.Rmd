@@ -55,7 +55,7 @@ names(StormDF)[names(StormDF) == "CROPDMG"] <- "Crop.Damage"
 names(StormDF)[names(StormDF) == "CROPDMGEXP"] <- "Crop.Damage.Exponent"
 ```
 
--Drop all rows with no Health or Economic loss
+- Drop all rows with no Health or Economic loss
 ```{r}
 StormDF <- StormDF[!rowSums(StormDF[c("Fatalities","Injuries","Property.Damage","Crop.Damage")])==0,]
 ```
@@ -102,6 +102,126 @@ StormDF[StormDF$CROPDMGEXP %in% c("b","B"),"CROPDMG.FULL"] <-
 StormDF["Economic.Impact"] <- StormDF$PROPDMG.FULL + StormDF$CROPDMG.FULL
 StormDF["Health.Impact"] <- StormDF$FATALITIES + StormDF$INJURIES
 ```
+
+- The dataset has three distinct collection periods.  
+1. From 1950 to 1954 only Tornado events were collected.  
+2. From 1955 through 1995, only tornado, thunderstorm wind and hail events were collected. From 
+3. From 1996 to present (2011), 48 event types are recorded as defined in NWS Directive 10-1605 (http://www.ncdc.noaa.gov/stormevents/pd01016005curr.pdf) were collected.
+
+-- Reassign the Date column to allow for subsetting according to these collection periods.  We don't need to factor in the TIMEZONE column for the sake of subsetting at a rough level.
+```{r}
+StormDF$Begin.Date <- as.Date(StormDF$Begin.Date, format = "%m/%d/%Y")
+
+#Create factor variable for subsetting.
+StormDF[which(StormDF$Begin.Date <= as.Date("1954-12-31")),"Reporting.Period"] <- "rp1950to1955"
+StormDF[which(StormDF$Begin.Date > as.Date("1954-12-31") & StormDF$Begin.Date <= as.Date("1995-12-31")),"Reporting.Period"] <- "rp1955to1996"
+StormDF[which(StormDF$Begin.Date > as.Date("1995-12-31")),"Reporting.Period"] <- "rp1996toPres"
+StormDF$Reporting.Period <- as.factor(StormDF$Reporting.Period)
+```
+
+- Check the validity and consistency of the "Event Type" column.  According to the documentation there are 48 "correct" storm event types.
+-- Create a list of allowed (known) Event Types from page 6 of http://www.ncdc.noaa.gov/stormevents/pd01016005curr.pdf
+```{r}
+allowedEvents <- toupper(c("Astronomical Low Tide", "Avalanche", "Blizzard", "Coastal Flood", "Cold/Wind Chill", "Debris Flow", "Dense Fog", "Dense Smoke", 
+                           "Drought", "Dust Devil", "Dust Storm", "Excessive Heat", "Extreme Cold/Wind Chill", "Flash Flood", "Flood", "Frost/Freeze", "Funnel Cloud", 
+                           "Freezing Fog", "Hail", "Heat", "Heavy Rain", "Heavy Snow", "High Surf", "High Wind", "Hurricane (Typhoon)", "Ice Storm", "Lake-Effect Snow", 
+                           "Lakeshore Flood", "Lightning", "Marine Hail", "Marine High Wind", "Marine Strong Wind", "Marine Thunderstorm Wind", "Rip Current", "Seiche", 
+                           "Sleet", "Storm Surge/Tide", "Strong Wind", "Thunderstorm Wind", "Tornado", "Tropical Depression", "Tropical Storm", "Tsunami", "Volcanic Ash", 
+                           "Waterspout", "Wildfire", "Winter Storm", "Winter Weather"))
+```
+
+- How many Event Types are listed in the dataset?
+```{r}
+StormDF$Event.Type <- toupper(StormDF$Event.Type)
+percErrors <- round(nrow(subset(StormDF, !Event.Type %in% allowedEvents)) / nrow(StormDF), 3)*100
+```
+There are `r nrow(unique(StormDF$Event.Type)` unique "events" in the data.
+Events with "non-standard" event fields represent `r percErrors` percent of the data.
+
+-- What is the magnitude of the economic and health impact for these "non-standard" events?
+```{r}
+skewEconomicImpact <- round(sum(subset(StormDF, !Event.Type %in% allowedEvents)$Economic.Impact) 
+                            / sum(StormDF$Economic.Impact), 3)*100
+skewHealthImpact <- round(sum(subset(StormDF, !Event.Type %in% allowedEvents)$Health.Impact) 
+                         / sum(StormDF$Health.Impact), 3)*100
+```
+Events with "non-standard" event fields represent `r skewEconomicImpact` percent of the total Economic Impact and `r skewHealthImpact` percent  
+of the total Health Impact of all storm events.
+
+
+-- We need to clean up the egregious and obviously mis-labeled event types.
+NOTE: This needs to be done according to a specific order because of some events that have multiple event types in the name (ie. Thunderstorm / Hail).  The below order is based on assesment of the direct vs indirect effects of Economic and Health impact in decreasing order of magnitude.  
+1. Primary cause: The major event ("Blizzard", "Funnel Cloud", "Hurricane (Typhoon)", "Tornado", "Tropical Depression", "Tropical Storm", "Tsunami",  "Wildfire", "Winter Storm"") are the causal events for secondary events such as wind, rain, flood, etc.  Also marine events are a special subset to start with.
+```{r}
+StormDF[grep("WATERS", StormDF$Event.Type),"Event.Type"] <- "WATERSPOUT"
+StormDF[grepl("^\\s*TORNA", StormDF$Event.Type),"Event.Type"] <- "TORNADO"
+StormDF[grep("(HUR|TYP)", StormDF$Event.Type),"Event.Type"] <- "HURRICANE (TYPHOON)"
+StormDF[grep("TROPIC.*STORM", StormDF$Event.Type),"Event.Type"] <- "TROPICAL STORM"
+StormDF[grep("BLIZ", StormDF$Event.Type),"Event.Type"] <- "BLIZZARD"
+StormDF[grep("FUNNEL.*CLO", StormDF$Event.Type),"Event.Type"] <- "FUNNEL CLOUD"
+StormDF[grep("TSU", StormDF$Event.Type),"Event.Type"] <- "TSUNAMI"
+StormDF[grep("FIRE", StormDF$Event.Type),"Event.Type"] <- "WILDFIRE"
+StormDF[grepl("WINTER", StormDF$Event.Type) & 
+                !StormDF$Event.Type %in% c("WINTER WEATHER"),"Event.Type"] <- "WINTER STORM"
+```
+2. Secondary cause: A primary event may have multiple secondary causes for damage costal flood, flash flood, flood, hail, wind, storm surge, high surf, high winds, etc that infer a precedance on the impact that they have.
+```{r}
+#Cleanup the various flood types.
+StormDF[grep("(COASTAL.*FLOOD|CSTL.*FLOOD|TID.*FLOOD)", StormDF$Event.Type),"Event.Type"] <- "COASTAL FLOOD"
+StormDF[grep("BEACH.*FLOOD", StormDF$Event.Type),"Event.Type"] <- "COASTAL FLOOD"
+StormDF[grep("(FLASH.*FLOOD|FLOOD.*FLASH)", StormDF$Event.Type),"Event.Type"] <- "FLASH FLOOD"
+StormDF[grepl("LAKE.*FLOOD", StormDF$Event.Type),"Event.Type"] <- "LAKESHORE FLOOD"
+StormDF[grepl("(FLOOD|FLD)", StormDF$Event.Type) & 
+                !StormDF$Event.Type %in% c("FLASH FLOOD", "COASTAL FLOOD", "LAKESHORE FLOOD"),"Event.Type"] <- "FLOOD"
+
+#Cleanup other outliers
+StormDF[grepl("HAIL", StormDF$Event.Type) & 
+                !StormDF$Event.Type %in% c("MARINE HAIL"),"Event.Type"] <- "HAIL"
+StormDF[grep("HEAVY RAIN", StormDF$Event.Type),"Event.Type"] <- "HEAVY RAIN"
+StormDF[grep("LAKE.*SNOW", StormDF$Event.Type),"Event.Type"] <- "LAKE-EFFECT SNOW"
+StormDF[grep("HEAVY SNOW", StormDF$Event.Type),"Event.Type"] <- "HEAVY SNOW"
+StormDF[grep("MAR.*TSTM", StormDF$Event.Type),"Event.Type"] <- "MARINE THUNDERSTORM WIND"
+StormDF[grepl("(THUNDERST|^\\s*TSTM)", StormDF$Event.Type) & 
+                !StormDF$Event.Type %in% c("MARINE THUNDERSTORM WIND"),"Event.Type"] <- "THUNDERSTORM WIND"
+StormDF[grep("(EXT.*COLD|EXT.*WIND.*CHIL)", StormDF$Event.Type),"Event.Type"] <- "EXTREME COLD/WIND CHILL"
+StormDF[grepl("WIND.*CHI", StormDF$Event.Type) & 
+                !StormDF$Event.Type %in% c("EXTREME COLD/WIND CHILL"),"Event.Type"] <- "COLD/WIND CHILL"
+StormDF[grep("STRONG.*WIND", StormDF$Event.Type),"Event.Type"] <- "STRONG WIND"
+StormDF[grep("HIGH.*WIND", StormDF$Event.Type),"Event.Type"] <- "HIGH WIND"
+StormDF[grep("ICE FOG", StormDF$Event.Type),"Event.Type"] <- "FREEZING FOG"
+StormDF[grepl("FOG", StormDF$Event.Type) & 
+                !StormDF$Event.Type %in% c("FREEZING FOG"),"Event.Type"] <- "DENSE FOG"
+StormDF[grep("^SNOW$", StormDF$Event.Type),"Event.Type"] <- "HEAVY SNOW"
+StormDF[grep("^STORM.*SURGE$", StormDF$Event.Type),"Event.Type"] <- "STORM SURGE/TIDE"
+StormDF[grep("^FREEZING RAIN$", StormDF$Event.Type),"Event.Type"] <- "ICE STORM"
+StormDF[grep("^WIND$", StormDF$Event.Type),"Event.Type"] <- "HIGH WIND"
+StormDF[grep("^LANDSLIDE$", StormDF$Event.Type),"Event.Type"] <- "HEAVY RAIN"
+StormDF[grep("RIP.*CUR", StormDF$Event.Type),"Event.Type"] <- "RIP CURRENT"
+StormDF[grep("WARM", StormDF$Event.Type),"Event.Type"] <- "HEAT"
+StormDF[grep("HEAVY SURF/HIGH SURF", StormDF$Event.Type),"Event.Type"] <- "HIGH SURF"
+StormDF[grep("HIGH TIDE", StormDF$Event.Type),"Event.Type"] <- "STORM SURGE/TIDE"
+```
+
+-- After doing some cleanup what is the magnitude of mis-classified events?
+```{r}
+percErrors <- round(nrow(subset(StormDF, !Event.Type %in% allowedEvents)) / nrow(StormDF), 3)*100
+```
+There are now `r nrow(unique(StormDF$Event.Type)` unique "events" in the data.
+Events with "non-standard" event fields represent `r percErrors` percent of the data.
+
+  What is the magnitude of the economic and health impact for these "non-standard" events?
+```{r}
+skewEconomicImpact <- round(sum(subset(StormDF, !Event.Type %in% allowedEvents)$Economic.Impact) 
+                            / sum(StormDF$Economic.Impact), 3)*100
+skewHealthImpact <- round(sum(subset(StormDF, !Event.Type %in% allowedEvents)$Health.Impact) 
+                         / sum(StormDF$Health.Impact), 3)*100
+```
+Events with "non-standard" event fields now represent `r skewEconomicImpact` percent of the total Economic Impact and `r skewHealthImpact` percent  
+of the total Health Impact of all storm events.
+
+
+
+
 
 
 

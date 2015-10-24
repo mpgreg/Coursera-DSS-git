@@ -147,8 +147,7 @@ cat(sprintf("Events with \"non-standard\" event fields represent %s percent of t
 
 StormDF[grep("WATERS", StormDF$Event.Type),"Event.Type"] <- "WATERSPOUT"
 StormDF[grepl("^\\s*TORNA", StormDF$Event.Type),"Event.Type"] <- "TORNADO"
-StormDF[grep("HUR", StormDF$Event.Type),"Event.Type"] <- "HURRICANE (TYPHOON)"
-StormDF[grep("TYP", StormDF$Event.Type),"Event.Type"] <- "HURRICANE (TYPHOON)"
+StormDF[grep("(HUR|TYP)", StormDF$Event.Type),"Event.Type"] <- "HURRICANE (TYPHOON)"
 StormDF[grep("TROPIC.*STORM", StormDF$Event.Type),"Event.Type"] <- "TROPICAL STORM"
 StormDF[grep("BLIZ", StormDF$Event.Type),"Event.Type"] <- "BLIZZARD"
 StormDF[grep("FUNNEL.*CLO", StormDF$Event.Type),"Event.Type"] <- "FUNNEL CLOUD"
@@ -160,16 +159,12 @@ StormDF[grepl("WINTER", StormDF$Event.Type) &
 #2) Secondary cause: A primary event may have multiple secondary causes for damage costal flood, flash flood, flood, hail, wind, storm surge, high surf, 
 #high winds, etc that infer a precedance on the impact that they have.
 #Cleanup the various flood types.
-StormDF[grep("COASTAL.*FLOOD", StormDF$Event.Type),"Event.Type"] <- "COASTAL FLOOD"
-StormDF[grep("CSTL.*FLOOD", StormDF$Event.Type),"Event.Type"] <- "COASTAL FLOOD"
-StormDF[grep("TID.*FLOOD", StormDF$Event.Type),"Event.Type"] <- "COASTAL FLOOD"
+StormDF[grep("(COASTAL.*FLOOD|CSTL.*FLOOD|TID.*FLOOD)", StormDF$Event.Type),"Event.Type"] <- "COASTAL FLOOD"
 StormDF[grep("BEACH.*FLOOD", StormDF$Event.Type),"Event.Type"] <- "COASTAL FLOOD"
-StormDF[grep("FLASH.*FLOOD", StormDF$Event.Type),"Event.Type"] <- "FLASH FLOOD"
-StormDF[grep("FLOOD.*FLASH", StormDF$Event.Type),"Event.Type"] <- "FLASH FLOOD"
+StormDF[grep("(FLASH.*FLOOD|FLOOD.*FLASH)", StormDF$Event.Type),"Event.Type"] <- "FLASH FLOOD"
 StormDF[grepl("LAKE.*FLOOD", StormDF$Event.Type),"Event.Type"] <- "LAKESHORE FLOOD"
-StormDF[grepl("FLOOD", StormDF$Event.Type) & 
+StormDF[grepl("(FLOOD|FLD)", StormDF$Event.Type) & 
                 !StormDF$Event.Type %in% c("FLASH FLOOD", "COASTAL FLOOD", "LAKESHORE FLOOD"),"Event.Type"] <- "FLOOD"
-StormDF[grepl("FLD", StormDF$Event.Type),"Event.Type"] <- "FLOOD"
 
 #Cleanup others
 StormDF[grepl("HAIL", StormDF$Event.Type) & 
@@ -177,12 +172,10 @@ StormDF[grepl("HAIL", StormDF$Event.Type) &
 StormDF[grep("HEAVY RAIN", StormDF$Event.Type),"Event.Type"] <- "HEAVY RAIN"
 StormDF[grep("LAKE.*SNOW", StormDF$Event.Type),"Event.Type"] <- "LAKE-EFFECT SNOW"
 StormDF[grep("HEAVY SNOW", StormDF$Event.Type),"Event.Type"] <- "HEAVY SNOW"
-StormDF[grepl("THUNDERST", StormDF$Event.Type) & 
-                !StormDF$Event.Type %in% c("MARINE THUNDERSTORM WIND"),"Event.Type"] <- "THUNDERSTORM WIND"
 StormDF[grep("MAR.*TSTM", StormDF$Event.Type),"Event.Type"] <- "MARINE THUNDERSTORM WIND"
-StormDF[grep("^\\s*TSTM", StormDF$Event.Type),"Event.Type"] <- "THUNDERSTORM WIND"
-StormDF[grep("EXT.*COLD", StormDF$Event.Type),"Event.Type"] <- "EXTREME COLD/WIND CHILL"
-StormDF[grep("EXT.*WIND.*CHIL", StormDF$Event.Type),"Event.Type"] <- "EXTREME COLD/WIND CHILL"
+StormDF[grepl("(THUNDERST|^\\s*TSTM)", StormDF$Event.Type) & 
+                !StormDF$Event.Type %in% c("MARINE THUNDERSTORM WIND"),"Event.Type"] <- "THUNDERSTORM WIND"
+StormDF[grep("(EXT.*COLD|EXT.*WIND.*CHIL)", StormDF$Event.Type),"Event.Type"] <- "EXTREME COLD/WIND CHILL"
 StormDF[grepl("WIND.*CHI", StormDF$Event.Type) & 
                 !StormDF$Event.Type %in% c("EXTREME COLD/WIND CHILL"),"Event.Type"] <- "COLD/WIND CHILL"
 StormDF[grep("STRONG.*WIND", StormDF$Event.Type),"Event.Type"] <- "STRONG WIND"
