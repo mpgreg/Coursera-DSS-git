@@ -17,7 +17,7 @@ The NOAA Storm Event Database (herein, database) records 37 variables on storm e
 
 ###Start by downloading and reading in the database file.
 
-```{r}
+```{r cache = TRUE}
 fileURL <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
 tempFile <- tempfile()
 if(capabilities("libcurl")) {
@@ -67,40 +67,42 @@ anyNA(StormDF)
 
 - Are the Property Damage and Crop Damage exponent fields accurate?
 ```{r}
-unique(StormDF$CROPDMGEXP)
-unique(StormDF$PROPDMGEXP)
+unique(StormDF$Property.Damage.Exponent)
+unique(StormDF$Crop.Damage.Exponent)
 ```
 -- Does the number of incorrect values in "exponent" fields represent a statistically relevant set?
 ```{r}
 allowedExp <- c("k", "K", "M", "m", "B", "b", "0", "0.0", "0.00", NA, "")
-percErrors <- round(nrow(subset(StormDF, !PROPDMGEXP %in% allowedExp | !CROPDMGEXP %in% allowedExp)) / nrow(StormDF), 5)*100
+percErrors <- round(nrow(subset(StormDF, !Property.Damage.Exponent %in% allowedExp | !Crop.Damage.Exponent %in% allowedExp)) / nrow(StormDF), 5)*100
+
 ```
 
 Events with erroneous exponent fields represent `r percErrors` percent of the data.
 
 - Property and crop damage are reported with dollar amount and exponential units in separate columns.  Calculate the damage cost by multiplying the exponents and combining.
 ```{r cache=TRUE}
-StormDF["PROPDMG.FULL"] <- StormDF["PROPDMG"]
-StormDF[StormDF$PROPDMGEXP %in% c("k","K"),"PROPDMG.FULL"] <- 
-        StormDF[StormDF$PROPDMGEXP %in% c("k","K"),"PROPDMG"]*1000
-StormDF[StormDF$PROPDMGEXP %in% c("m","M"),"PROPDMG.FULL"] <- 
-        StormDF[StormDF$PROPDMGEXP %in% c("m","M"),"PROPDMG"]*1000000
-StormDF[StormDF$PROPDMGEXP %in% c("b","B"),"PROPDMG.FULL"] <- 
-        StormDF[StormDF$PROPDMGEXP %in% c("b","B"),"PROPDMG"]*1000000000
+#Calculate the full property damage cost by multiplying the exponent
+StormDF["Property.Damage.FULL"] <- StormDF["Property.Damage"]
+StormDF[StormDF$Property.Damage.Exponent %in% c("k","K"),"Property.Damage.FULL"] <- 
+        StormDF[StormDF$Property.Damage.Exponent %in% c("k","K"),"Property.Damage"]*1000
+StormDF[StormDF$Property.Damage.Exponent %in% c("m","M"),"Property.Damage.FULL"] <- 
+        StormDF[StormDF$Property.Damage.Exponent %in% c("m","M"),"Property.Damage"]*1000000
+StormDF[StormDF$Property.Damage.Exponent %in% c("b","B"),"Property.Damage.FULL"] <- 
+        StormDF[StormDF$Property.Damage.Exponent %in% c("b","B"),"Property.Damage"]*1000000000
 #Do the same for crop damage
-StormDF["CROPDMG.FULL"] <- StormDF["CROPDMG"]
-StormDF[StormDF$CROPDMGEXP %in% c("k","K"),"CROPDMG.FULL"] <- 
-        StormDF[StormDF$CROPDMGEXP %in% c("k","K"),"CROPDMG"]*1000
-StormDF[StormDF$CROPDMGEXP %in% c("m","M"),"CROPDMG.FULL"] <- 
-        StormDF[StormDF$CROPDMGEXP %in% c("m","M"),"CROPDMG"]*1000000
-StormDF[StormDF$CROPDMGEXP %in% c("b","B"),"CROPDMG.FULL"] <- 
-        StormDF[StormDF$CROPDMGEXP %in% c("b","B"),"CROPDMG"]*1000000000
+StormDF["Crop.Damage.FULL"] <- StormDF["Crop.Damage"]
+StormDF[StormDF$Crop.Damage.Exponent %in% c("k","K"),"Crop.Damage.FULL"] <- 
+        StormDF[StormDF$Crop.Damage.Exponent %in% c("k","K"),"Crop.Damage"]*1000
+StormDF[StormDF$Crop.Damage.Exponent %in% c("m","M"),"Crop.Damage.FULL"] <- 
+        StormDF[StormDF$Crop.Damage.Exponent %in% c("m","M"),"Crop.Damage"]*1000000
+StormDF[StormDF$Crop.Damage.Exponent %in% c("b","B"),"Crop.Damage.FULL"] <- 
+        StormDF[StormDF$Crop.Damage.Exponent %in% c("b","B"),"Crop.Damage"]*1000000000
 ```
 
 -- Add columns to summarize economic and personal health impact.
-```{r cache=TRUE}
-StormDF["Economic.Impact"] <- StormDF$PROPDMG.FULL + StormDF$CROPDMG.FULL
-StormDF["Health.Impact"] <- StormDF$FATALITIES + StormDF$INJURIES
+```{r}
+StormDF["Economic.Impact"] <- StormDF$Property.Damage.FULL + StormDF$Crop.Damage.FULL
+StormDF["Health.Impact"] <- StormDF$Fatalities + StormDF$Injuries
 ```
 
 - The dataset has three distinct collection periods.  
@@ -135,8 +137,8 @@ allowedEvents <- toupper(c("Astronomical Low Tide", "Avalanche", "Blizzard", "Co
 StormDF$Event.Type <- toupper(StormDF$Event.Type)
 percErrors <- round(nrow(subset(StormDF, !Event.Type %in% allowedEvents)) / nrow(StormDF), 3)*100
 ```
-There are `r nrow(unique(StormDF$Event.Type)` unique "events" in the data.
-Events with "non-standard" event fields represent `r percErrors` percent of the data.
+There are `r length(unique(StormDF$Event.Type))` unique "events" in the data.
+Events with non-standard event fields represent `r percErrors`% of the data.
 
 -- What is the magnitude of the economic and health impact for these "non-standard" events?
 ```{r}
@@ -145,12 +147,13 @@ skewEconomicImpact <- round(sum(subset(StormDF, !Event.Type %in% allowedEvents)$
 skewHealthImpact <- round(sum(subset(StormDF, !Event.Type %in% allowedEvents)$Health.Impact) 
                          / sum(StormDF$Health.Impact), 3)*100
 ```
-Events with "non-standard" event fields represent `r skewEconomicImpact` percent of the total Economic Impact and `r skewHealthImpact` percent  
+Events with non-standard event fields represent `r skewEconomicImpact`% of the total Economic Impact and `r skewHealthImpact`%  
 of the total Health Impact of all storm events.
 
 
--- We need to clean up the egregious and obviously mis-labeled event types.
+-- We need to clean up the egregious and obviously mis-labeled event types.  
 NOTE: This needs to be done according to a specific order because of some events that have multiple event types in the name (ie. Thunderstorm / Hail).  The below order is based on assesment of the direct vs indirect effects of Economic and Health impact in decreasing order of magnitude.  
+  
 1. Primary cause: The major event ("Blizzard", "Funnel Cloud", "Hurricane (Typhoon)", "Tornado", "Tropical Depression", "Tropical Storm", "Tsunami",  "Wildfire", "Winter Storm"") are the causal events for secondary events such as wind, rain, flood, etc.  Also marine events are a special subset to start with.
 ```{r}
 StormDF[grep("WATERS", StormDF$Event.Type),"Event.Type"] <- "WATERSPOUT"
@@ -206,7 +209,7 @@ StormDF[grep("HIGH TIDE", StormDF$Event.Type),"Event.Type"] <- "STORM SURGE/TIDE
 ```{r}
 percErrors <- round(nrow(subset(StormDF, !Event.Type %in% allowedEvents)) / nrow(StormDF), 3)*100
 ```
-There are now `r nrow(unique(StormDF$Event.Type)` unique "events" in the data.
+There are now `r length(unique(StormDF$Event.Type))` unique "events" in the data.
 Events with "non-standard" event fields represent `r percErrors` percent of the data.
 
   What is the magnitude of the economic and health impact for these "non-standard" events?
@@ -216,19 +219,31 @@ skewEconomicImpact <- round(sum(subset(StormDF, !Event.Type %in% allowedEvents)$
 skewHealthImpact <- round(sum(subset(StormDF, !Event.Type %in% allowedEvents)$Health.Impact) 
                          / sum(StormDF$Health.Impact), 3)*100
 ```
-Events with "non-standard" event fields now represent `r skewEconomicImpact` percent of the total Economic Impact and `r skewHealthImpact` percent  
-of the total Health Impact of all storm events.
+Events with "non-standard" event fields now represent `r skewEconomicImpact`% of the total Economic Impact  
+and `r skewHealthImpact`% of the total Health Impact of all storm events.
 
 
+```{r}
+require(reshape2)
+meltedDF <- melt(StormDF, id.vars = "Event.Type", 
+                          measure.vars = c("Fatalities", "Injuries", "Health.Impact", "Property.Damage.FULL", "Crop.Damage.FULL", "Economic.Impact"))
+summaryDF <- dcast(meltedDF, Event.Type ~ variable, sum)
+rownames(summaryDF) <- summaryDF$Event.Type
 
+maxEconomicStorm <- StormDF[which.max(StormDF$Economic.Impact),]
+maxEconomicStormType <- summaryDF[which.max(summaryDF$Economic.Impact),]
+maxHealthStorm <- StormDF[which.max(StormDF$Health.Impact),]
+maxHelathStormType <- summaryDF[which.max(summaryDF$Health.Impact),]
 
-
-
+```
 
 
 
 ##Results: in which your results are presented.
+```{r}
+barplot(head(sort(summaryDF[summaryDF$Economic.Impact > quantile(summaryDF$Economic.Impact)[[4]],"Economic.Impact"], decreasing = TRUE), 10))
 
+```
 You may have other sections in your analysis, but Data Processing and Results are required.
 
 The analysis document must have at least one figure containing a plot.

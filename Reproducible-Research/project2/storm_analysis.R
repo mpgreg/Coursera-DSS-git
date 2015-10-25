@@ -215,10 +215,13 @@ require(reshape2)
 meltedDF <- melt(StormDF, id.vars = "Event.Type", 
                           measure.vars = c("Fatalities", "Injuries", "Health.Impact", "Property.Damage.FULL", "Crop.Damage.FULL", "Economic.Impact"))
 summaryDF <- dcast(meltedDF, Event.Type ~ variable, sum)
+rownames(summaryDF) <- summaryDF$Event.Type
+
+barplot(head(sort(summaryDF[summaryDF$Economic.Impact > quantile(summaryDF$Economic.Impact)[[4]],"Economic.Impact"], decreasing = TRUE), 10))
 
 maxEconomicStorm <- StormDF[which.max(StormDF$Economic.Impact),]
-maxEconomicStormType <- 
+maxEconomicStormType <- summaryDF[which.max(summaryDF$Economic.Impact),]
 maxHealthStorm <- StormDF[which.max(StormDF$Health.Impact),]
-maxHelathStormType <-
+maxHelathStormType <- summaryDF[which.max(summaryDF$Health.Impact),]
 
 
