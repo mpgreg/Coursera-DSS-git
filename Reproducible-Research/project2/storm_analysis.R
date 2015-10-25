@@ -229,23 +229,29 @@ topEconomic <- do.call(rbind, by(summaryDF,summaryDF$Reporting.Period,
 topHealth <- do.call(rbind, by(summaryDF,summaryDF$Reporting.Period, 
                                function(dat) dat[order(dat$Health.Impact,decreasing=TRUE)[1:topN],]))
 
-topEconomicPlot <- ggplot(topEconomic, aes(x = factor(Event.Type), y = Economic.Impact, fill = factor(Reporting.Period))) +
+topEconomicPlot <- ggplot(na.omit(topEconomic), aes(x = factor(Event.Type), y = Economic.Impact, fill = factor(Reporting.Period))) +
         geom_bar(stat = 'identity')  + 
         ylab('Economic Impact (USD)') + 
-        xlab('Event Type') + 
-        theme(legend.position = 'none', axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) +
-        scale_fill_discrete('') 
+        xlab('') +
+        theme(legend.position = 'none',
+              plot.margin = unit(c(3, 1, 3, 1), "lines"),
+              axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
 
-topHealthPlot <- ggplot(topHealth, aes(x = factor(Event.Type), y = Health.Impact, fill = factor(Reporting.Period))) +
+topHealthPlot <- ggplot(na.omit(topHealth), aes(x = factor(Event.Type), y = Health.Impact, fill = factor(Reporting.Period))) +
         geom_bar(stat = 'identity')  + 
         ylab('Health Impact (Fatalities + Injuries)') + 
-        xlab('Event Type') + 
-        theme(legend.position = 'top', axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) +
-        scale_fill_discrete('')
+        xlab('') +
+        theme(legend.position = 'bottom', 
+              ##legend.text.align = 'vertical', 
+              plot.margin = unit(c(3, 1, 1, 1), "lines"),
+              axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) +
+        scale_fill_discrete(guide = guide_legend(title = "Reporting Period"))
 
 pushViewport(viewport(layout = grid.layout(1, 2)))
 print(topEconomicPlot, vp = viewport(layout.pos.row = 1, layout.pos.col = 1))
 print(topHealthPlot, vp = viewport(layout.pos.row = 1, layout.pos.col = 2))
+grid.text("Event Type", y = 1, just = c("center","bottom"))
+grid.text("Top N Storm Event Types by Economic and Health Impact", y = 1, just = c("center","top"))
 
 
 
