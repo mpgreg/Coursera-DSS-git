@@ -88,9 +88,9 @@ StormDF["Health.Impact"] <- StormDF$Fatalities + StormDF$Injuries
 StormDF$Begin.Date <- as.Date(StormDF$Begin.Date, format = "%m/%d/%Y")
 
 #Create factor variable for subsetting.
-StormDF[which(StormDF$Begin.Date <= as.Date("1954-12-31")),"Reporting.Period"] <- "rp1950to1955"
-StormDF[which(StormDF$Begin.Date > as.Date("1954-12-31") & StormDF$Begin.Date <= as.Date("1995-12-31")),"Reporting.Period"] <- "rp1955to1996"
-StormDF[which(StormDF$Begin.Date > as.Date("1995-12-31")),"Reporting.Period"] <- "rp1996toPres"
+StormDF[which(StormDF$Begin.Date <= as.Date("1954-12-31")),"Reporting.Period"] <- "1950 to 1955"
+StormDF[which(StormDF$Begin.Date > as.Date("1954-12-31") & StormDF$Begin.Date <= as.Date("1995-12-31")),"Reporting.Period"] <- "1955 to 1996"
+StormDF[which(StormDF$Begin.Date > as.Date("1995-12-31")),"Reporting.Period"] <- "1996 to Present"
 StormDF$Reporting.Period <- as.factor(StormDF$Reporting.Period)
 
 
@@ -208,16 +208,46 @@ skewHealthImpact <- round(sum(subset(StormDF, !Event.Type %in% allowedEvents)$He
                           / sum(StormDF$Health.Impact), 3)*100
 cat(sprintf("Events with \"non-standard\" event fields represent %s percent of the total Health Impact of all storm events.\n", skewHealthImpact))
 
-###NEED to subset by collection period
 
-#Build aggregates for cross-tabulation of fatalities, injuries, and total.
+
+#Since the first and second reporting period only captured a subset of the final 48 Event types we
+#may want to treat each period as its own section.
+
+#Cross-tabulate the dataset based on fatalities, injuries, and total by reporting period.
 require(reshape2)
-meltedDF <- melt(StormDF, id.vars = "Event.Type", 
+library(ggplot2)
+library(grid)
+meltedDF <- melt(StormDF, id.vars = c("Event.Type", "Reporting.Period"),
                           measure.vars = c("Fatalities", "Injuries", "Health.Impact", "Property.Damage.FULL", "Crop.Damage.FULL", "Economic.Impact"))
-summaryDF <- dcast(meltedDF, Event.Type ~ variable, sum)
-rownames(summaryDF) <- summaryDF$Event.Type
+summaryDF <- dcast(meltedDF, Event.Type + Reporting.Period ~ variable, sum)
 
-barplot(head(sort(summaryDF[summaryDF$Economic.Impact > quantile(summaryDF$Economic.Impact)[[4]],"Economic.Impact"], decreasing = TRUE), 10))
+#Though the improperly coded events do not represent a significant magnitude of the data set they do create lots of 
+#noice on the charts.  Let's grab just the top N events for each reporting period for both Economic and Health impact.
+topN <- 5
+topEconomic <- do.call(rbind, by(summaryDF,summaryDF$Reporting.Period, 
+                                function(dat) dat[order(dat$Economic.Impact,decreasing=TRUE)[1:topN],]))
+topHealth <- do.call(rbind, by(summaryDF,summaryDF$Reporting.Period, 
+                               function(dat) dat[order(dat$Health.Impact,decreasing=TRUE)[1:topN],]))
+
+topEconomicPlot <- ggplot(topEconomic, aes(x = factor(Event.Type), y = Economic.Impact, fill = factor(Reporting.Period))) +
+        geom_bar(stat = 'identity')  + 
+        ylab('Economic Impact (USD)') + 
+        xlab('Event Type') + 
+        theme(legend.position = 'none', axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) +
+        scale_fill_discrete('') 
+
+topHealthPlot <- ggplot(topHealth, aes(x = factor(Event.Type), y = Health.Impact, fill = factor(Reporting.Period))) +
+        geom_bar(stat = 'identity')  + 
+        ylab('Health Impact (Fatalities + Injuries)') + 
+        xlab('Event Type') + 
+        theme(legend.position = 'top', axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) +
+        scale_fill_discrete('')
+
+pushViewport(viewport(layout = grid.layout(1, 2)))
+print(topEconomicPlot, vp = viewport(layout.pos.row = 1, layout.pos.col = 1))
+print(topHealthPlot, vp = viewport(layout.pos.row = 1, layout.pos.col = 2))
+
+
 
 maxEconomicStorm <- StormDF[which.max(StormDF$Economic.Impact),]
 maxEconomicStormType <- summaryDF[which.max(summaryDF$Economic.Impact),]
