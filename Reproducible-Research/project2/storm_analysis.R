@@ -221,6 +221,12 @@ meltedDF <- melt(StormDF, id.vars = c("Event.Type", "Reporting.Period"),
                           measure.vars = c("Fatalities", "Injuries", "Health.Impact", "Property.Damage.FULL", "Crop.Damage.FULL", "Economic.Impact"))
 summaryDF <- dcast(meltedDF, Event.Type + Reporting.Period ~ variable, sum)
 
+#Lets look at the most impactful storms in terms of individual events and event types.
+maxEconomicStorm <- StormDF[which.max(StormDF$Economic.Impact),]
+maxEconomicStormType <- summaryDF[which.max(summaryDF$Economic.Impact),]
+maxHealthStorm <- StormDF[which.max(StormDF$Health.Impact),]
+maxHelathStormType <- summaryDF[which.max(summaryDF$Health.Impact),]
+
 #Though the improperly coded events do not represent a significant magnitude of the data set they do create lots of 
 #noice on the charts.  Let's grab just the top N events for each reporting period for both Economic and Health impact.
 topN <- 5
@@ -228,14 +234,23 @@ topEconomic <- do.call(rbind, by(summaryDF,summaryDF$Reporting.Period,
                                 function(dat) dat[order(dat$Economic.Impact,decreasing=TRUE)[1:topN],]))
 topHealth <- do.call(rbind, by(summaryDF,summaryDF$Reporting.Period, 
                                function(dat) dat[order(dat$Health.Impact,decreasing=TRUE)[1:topN],]))
+topFatalities <- do.call(rbind, by(summaryDF,summaryDF$Reporting.Period, 
+                                   function(dat) dat[order(dat$Fatalities,decreasing=TRUE)[1:topN],]))
+topInjuries <- do.call(rbind, by(summaryDF,summaryDF$Reporting.Period, 
+                                 function(dat) dat[order(dat$Injuries,decreasing=TRUE)[1:topN],]))
+topPropDmg <- do.call(rbind, by(summaryDF,summaryDF$Reporting.Period, 
+                                function(dat) dat[order(dat$Property.Damage.FULL,decreasing=TRUE)[1:topN],]))
+topCropDmg <- do.call(rbind, by(summaryDF,summaryDF$Reporting.Period, 
+                                function(dat) dat[order(dat$Crop.Damage.FULL,decreasing=TRUE)[1:topN],]))
 
+#Plot Economic and Health Impacts
 topEconomicPlot <- ggplot(na.omit(topEconomic), aes(x = factor(Event.Type), y = Economic.Impact, fill = factor(Reporting.Period))) +
         geom_bar(stat = 'identity')  + 
         ylab('Economic Impact (USD)') + 
-        xlab('') +
+        xlab('Event Type') +
         theme(legend.position = 'none',
               plot.margin = unit(c(3, 1, 3, 1), "lines"),
-              axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+              axis.text.x = element_text(angle = 45, size = 8, hjust = 1, vjust = 1))
 
 topHealthPlot <- ggplot(na.omit(topHealth), aes(x = factor(Event.Type), y = Health.Impact, fill = factor(Reporting.Period))) +
         geom_bar(stat = 'identity')  + 
@@ -244,7 +259,7 @@ topHealthPlot <- ggplot(na.omit(topHealth), aes(x = factor(Event.Type), y = Heal
         theme(legend.position = 'bottom', 
               ##legend.text.align = 'vertical', 
               plot.margin = unit(c(3, 1, 1, 1), "lines"),
-              axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) +
+              axis.text.x = element_text(angle = 45, size = 8, hjust = 1, vjust = 1)) +
         scale_fill_discrete(guide = guide_legend(title = "Reporting Period"))
 
 pushViewport(viewport(layout = grid.layout(1, 2)))
@@ -253,11 +268,57 @@ print(topHealthPlot, vp = viewport(layout.pos.row = 1, layout.pos.col = 2))
 grid.text("Event Type", y = 1, just = c("center","bottom"))
 grid.text("Top N Storm Event Types by Economic and Health Impact", y = 1, just = c("center","top"))
 
+#Break down the Economic Impact further into property and crop damage.
+topPropDmgPlot <- ggplot(na.omit(topPropDmg), aes(x = factor(Event.Type), y = Property.Damage.FULL, fill = factor(Reporting.Period))) +
+        geom_bar(stat = 'identity')  + 
+        ylab('Property Damage (USD)') + 
+        xlab('Event Type') +
+        theme(legend.position = 'none',
+              plot.margin = unit(c(3, 1, 3, 1), "lines"),
+              axis.text.x = element_text(angle = 45, size = 8, hjust = 1, vjust = 1))
+
+topCropDmgPlot <- ggplot(na.omit(topCropDmg), aes(x = factor(Event.Type), y = Crop.Damage.FULL, fill = factor(Reporting.Period))) +
+        geom_bar(stat = 'identity')  + 
+        ylab('Crop Damage (USD)') + 
+        xlab('') +
+        theme(legend.position = 'bottom', 
+              legend.title=element_text(size=6),
+              legend.text=element_text(size=6), 
+              legend.key.size= unit(c(5), "mm"), 
+              plot.margin = unit(c(3, 1, 1, 1), "lines"),
+              axis.text.x = element_text(angle = 45, size = 8, hjust = 1, vjust = 1)) +
+        scale_fill_discrete(guide = guide_legend(title = "Reporting Period"))
+
+pushViewport(viewport(layout = grid.layout(1, 2)))
+print(topPropDmgPlot, vp = viewport(layout.pos.row = 1, layout.pos.col = 1))
+print(topCropDmgPlot, vp = viewport(layout.pos.row = 1, layout.pos.col = 2))
+grid.text("Event Type", y = 1, just = c("center","bottom"))
+grid.text("Top N Storm Event Types by Property and Crop Damage", y = 1, just = c("center","top"))
 
 
-maxEconomicStorm <- StormDF[which.max(StormDF$Economic.Impact),]
-maxEconomicStormType <- summaryDF[which.max(summaryDF$Economic.Impact),]
-maxHealthStorm <- StormDF[which.max(StormDF$Health.Impact),]
-maxHelathStormType <- summaryDF[which.max(summaryDF$Health.Impact),]
+#Likewise, break down the Health Impact further into Fatalities and Injuries.
+topFatalitiesPlot <- ggplot(na.omit(topFatalities), aes(x = factor(Event.Type), y = Fatalities, fill = factor(Reporting.Period))) +
+        geom_bar(stat = 'identity')  + 
+        ylab('Fatalities') + 
+        xlab('Event Type') +
+        theme(legend.position = 'none',
+              plot.margin = unit(c(3, 1, 3, 1), "lines"),
+              axis.text.x = element_text(angle = 45, size = 8, hjust = 1, vjust = 1))
 
+topInjuriesPlot <- ggplot(na.omit(topInjuries), aes(x = factor(Event.Type), y = Injuries, fill = factor(Reporting.Period))) +
+        geom_bar(stat = 'identity')  + 
+        ylab('Injuries') + 
+        xlab('') +
+        theme(legend.position = 'bottom', 
+              legend.title=element_text(size=6),
+              legend.text=element_text(size=6), 
+              legend.key.size= unit(c(5), "mm"), 
+              plot.margin = unit(c(3, 1, 1, 1), "lines"),
+              axis.text.x = element_text(angle = 45, size = 8, hjust = 1, vjust = 1)) +
+        scale_fill_discrete(guide = guide_legend(title = "Reporting Period"))
 
+pushViewport(viewport(layout = grid.layout(1, 2)))
+print(topFatalitiesPlot, vp = viewport(layout.pos.row = 1, layout.pos.col = 1))
+print(topInjuriesPlot, vp = viewport(layout.pos.row = 1, layout.pos.col = 2))
+grid.text("Event Type", y = 1, just = c("center","bottom"))
+grid.text("Top N Storm Event Types by Fatalities and Injuries", y = 1, just = c("center","top"))

@@ -10,10 +10,10 @@ opts_chunk$set(echo = TRUE, restult = "hide")
 ```
 
 ##Synopsis: 
-Storms and other severe weather events can cause both public health and economic problems for communities and municipalities. Many severe events can result in fatalities, injuries, and property damage, and preventing such outcomes to the extent possible is a key concern.  This project involves exploring the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. This database tracks characteristics of major storms and weather events in the United States, including when and where they occur, as well as estimates of any fatalities, injuries, and property damage.
+Storms and other severe weather events can cause both public health and economic problems for communities and municipalities. Many severe events can result in fatalities, injuries, and property damage, and preventing such outcomes to the extent possible is a key concern.  This project attempts to draw conclusions from storm event types by exploring the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. This database tracks characteristics of major storms and weather events in the United States, including when and where they occur, as well as estimates of any fatalities, injuries, and property damage.
 
 ##Data Processing: 
-The NOAA Storm Event Database (herein, database) records 37 variables on storm events from 1950 to present day.  This project will use [a subset of the data](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2) with nearly 1 million storm events from April 1950 to November 2011.  In addition to the dataset [Documentation](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf) and [FAQs](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf) are available.
+The NOAA Storm Event Database records 37 variables on storm events from 1950 to present day.  This project will use [a subset of the data](https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2) with nearly 1 million storm events from April 1950 to November 2011.  In addition to the dataset [Documentation](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2Fpd01016005curr.pdf) and [FAQs](https://d396qusza40orc.cloudfront.net/repdata%2Fpeer2_doc%2FNCDC%20Storm%20Events-FAQ%20Page.pdf) are available.
 
 ###Start by downloading and reading in the database file.
 
@@ -137,8 +137,8 @@ allowedEvents <- toupper(c("Astronomical Low Tide", "Avalanche", "Blizzard", "Co
 StormDF$Event.Type <- toupper(StormDF$Event.Type)
 percErrors <- round(nrow(subset(StormDF, !Event.Type %in% allowedEvents)) / nrow(StormDF), 3)*100
 ```
-There are `r length(unique(StormDF$Event.Type))` unique "events" in the data.
-Events with non-standard event fields represent `r percErrors`% of the data.
+There are `r length(unique(StormDF$Event.Type))` unique "event types" in the data.
+Events with non-standard event type fields represent `r percErrors`% of the data.
 
 -- What is the magnitude of the economic and health impact for these "non-standard" events?
 ```{r}
@@ -209,10 +209,10 @@ StormDF[grep("HIGH TIDE", StormDF$Event.Type),"Event.Type"] <- "STORM SURGE/TIDE
 ```{r}
 percErrors <- round(nrow(subset(StormDF, !Event.Type %in% allowedEvents)) / nrow(StormDF), 3)*100
 ```
-There are now `r length(unique(StormDF$Event.Type))` unique "events" in the data.
-Events with "non-standard" event fields represent `r percErrors` percent of the data.
+There are now `r length(unique(StormDF$Event.Type))` unique "events" in the data representing `r percErrors` percent of the data.
 
   What is the magnitude of the economic and health impact for these "non-standard" events?
+
 ```{r}
 skewEconomicImpact <- round(sum(subset(StormDF, !Event.Type %in% allowedEvents)$Economic.Impact) 
                             / sum(StormDF$Economic.Impact), 3)*100
@@ -241,30 +241,41 @@ topEconomic <- do.call(rbind, by(summaryDF,summaryDF$Reporting.Period,
                                 function(dat) dat[order(dat$Economic.Impact,decreasing=TRUE)[1:topN],]))
 topHealth <- do.call(rbind, by(summaryDF,summaryDF$Reporting.Period, 
                                function(dat) dat[order(dat$Health.Impact,decreasing=TRUE)[1:topN],]))
+topFatalities <- do.call(rbind, by(summaryDF,summaryDF$Reporting.Period, 
+                                   function(dat) dat[order(dat$Fatalities,decreasing=TRUE)[1:topN],]))
+topInjuries <- do.call(rbind, by(summaryDF,summaryDF$Reporting.Period, 
+                                 function(dat) dat[order(dat$Injuries,decreasing=TRUE)[1:topN],]))
+topPropDmg <- do.call(rbind, by(summaryDF,summaryDF$Reporting.Period, 
+                                function(dat) dat[order(dat$Property.Damage.FULL,decreasing=TRUE)[1:topN],]))
+topCropDmg <- do.call(rbind, by(summaryDF,summaryDF$Reporting.Period, 
+                                function(dat) dat[order(dat$Crop.Damage.FULL,decreasing=TRUE)[1:topN],]))
 ```
 
 
-
 ##Results: 
+- First graph the aggregation of events across event types for both economic and health impact.   
+
 ```{r}
 library(ggplot2)
 library(grid)
 topEconomicPlot <- ggplot(na.omit(topEconomic), aes(x = factor(Event.Type), y = Economic.Impact, fill = factor(Reporting.Period))) +
         geom_bar(stat = 'identity')  + 
         ylab('Economic Impact (USD)') + 
-        xlab('') +
+        xlab('Event Type') +
         theme(legend.position = 'none',
               plot.margin = unit(c(3, 1, 3, 1), "lines"),
-              axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1))
+              axis.text.x = element_text(angle = 45, size = 8, hjust = 1, vjust = 1))
 
 topHealthPlot <- ggplot(na.omit(topHealth), aes(x = factor(Event.Type), y = Health.Impact, fill = factor(Reporting.Period))) +
         geom_bar(stat = 'identity')  + 
         ylab('Health Impact (Fatalities + Injuries)') + 
         xlab('') +
         theme(legend.position = 'bottom', 
-              ##legend.text.align = 'vertical', 
+              legend.title=element_text(size=6),
+              legend.text=element_text(size=6), 
+              legend.key.size= unit(c(5), "mm"), 
               plot.margin = unit(c(3, 1, 1, 1), "lines"),
-              axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1)) +
+              axis.text.x = element_text(angle = 45, size = 8, hjust = 1, vjust = 1)) +
         scale_fill_discrete(guide = guide_legend(title = "Reporting Period"))
 
 pushViewport(viewport(layout = grid.layout(1, 2)))
@@ -274,3 +285,81 @@ grid.text("Event Type", y = 1, just = c("center","bottom"))
 grid.text("Top N Storm Event Types by Economic and Health Impact", y = 1, just = c("center","top"))
 
 ```
+
+- What are the most impactful storms in terms of individual events and event types.
+```{r}
+maxEconomicStorm <- StormDF[which.max(StormDF$Economic.Impact),]
+maxEconomicStormType <- summaryDF[which.max(summaryDF$Economic.Impact),]
+maxHealthStorm <- StormDF[which.max(StormDF$Health.Impact),]
+maxHealthStormType <- summaryDF[which.max(summaryDF$Health.Impact),]
+```
+-- The most economically impactful storm event was a `r maxEconomicStorm$Event.Type` occuring in `r format(maxEconomicStorm$Begin.Date, "%B, %Y")` causing `r maxEconomicStorm$Economic.Impact` dollars of damage (inflation unaccounted).  
+-- The most economically impactful storm ***TYPES*** are `r maxEconomicStormType$Event.Type`s causing a total of `r sum(StormDF$Economic.Impact)` dollars of damage (inflation unaccounted).  
+-- The most *health* impactful storm event was a `r maxHealthStorm$Event.Type` occuring in `r format(maxHealthStorm$Begin.Date, "%B, %Y")` and causing `r maxHealthStorm$Fatalities` fatalities and `r maxHealthStorm$Injuries` injuries.  
+-- The most *health* impactful storm ***TYPES*** are `r maxHealthStormType$Event.Type`s causing a total of `r maxHealthStormType$Health.Impact` total injuries and fatalities.    
+
+
+- Break down the Economic Impact further into property and crop damage.
+```{r plotEconomicByType}
+topPropDmgPlot <- ggplot(na.omit(topPropDmg), aes(x = factor(Event.Type), y = Property.Damage.FULL, fill = factor(Reporting.Period))) +
+        geom_bar(stat = 'identity')  + 
+        ylab('Property Damage (USD)') + 
+        xlab('Event Type') +
+        theme(legend.position = 'none',
+              plot.margin = unit(c(3, 1, 3, 1), "lines"),
+              axis.text.x = element_text(angle = 45, size = 8, hjust = 1, vjust = 1))
+
+topCropDmgPlot <- ggplot(na.omit(topCropDmg), aes(x = factor(Event.Type), y = Crop.Damage.FULL, fill = factor(Reporting.Period))) +
+        geom_bar(stat = 'identity')  + 
+        ylab('Crop Damage (USD)') + 
+        xlab('') +
+        theme(legend.position = 'bottom', 
+              legend.title=element_text(size=6),
+              legend.text=element_text(size=6), 
+              legend.key.size= unit(c(5), "mm"), 
+              plot.margin = unit(c(3, 1, 1, 1), "lines"),
+              axis.text.x = element_text(angle = 45, size = 8, hjust = 1, vjust = 1)) +
+        scale_fill_discrete(guide = guide_legend(title = "Reporting Period"))
+
+pushViewport(viewport(layout = grid.layout(1, 2)))
+print(topPropDmgPlot, vp = viewport(layout.pos.row = 1, layout.pos.col = 1))
+print(topCropDmgPlot, vp = viewport(layout.pos.row = 1, layout.pos.col = 2))
+grid.text("Event Type", y = 1, just = c("center","bottom"))
+grid.text("Top N Storm Event Types by Property and Crop Damage", y = 1, just = c("center","top"))
+```
+
+- Likewise, break down the Health Impact further into Fatalities and Injuries.
+```{r plotHealthByType}
+topFatalitiesPlot <- ggplot(na.omit(topFatalities), aes(x = factor(Event.Type), y = Fatalities, fill = factor(Reporting.Period))) +
+        geom_bar(stat = 'identity')  + 
+        ylab('Fatalities') + 
+        xlab('Event Type') +
+        theme(legend.position = 'none',
+              plot.margin = unit(c(3, 1, 3, 1), "lines"),
+              axis.text.x = element_text(angle = 45, size = 8, hjust = 1, vjust = 1))
+
+topInjuriesPlot <- ggplot(na.omit(topInjuries), aes(x = factor(Event.Type), y = Injuries, fill = factor(Reporting.Period))) +
+        geom_bar(stat = 'identity')  + 
+        ylab('Injuries') + 
+        xlab('') +
+        theme(legend.position = 'bottom', 
+              legend.title=element_text(size=6),
+              legend.text=element_text(size=6), 
+              legend.key.size= unit(c(5), "mm"), 
+              plot.margin = unit(c(3, 1, 1, 1), "lines"),
+              axis.text.x = element_text(angle = 45, size = 8, hjust = 1, vjust = 1)) +
+        scale_fill_discrete(guide = guide_legend(title = "Reporting Period"))
+
+pushViewport(viewport(layout = grid.layout(1, 2)))
+print(topFatalitiesPlot, vp = viewport(layout.pos.row = 1, layout.pos.col = 1))
+print(topInjuriesPlot, vp = viewport(layout.pos.row = 1, layout.pos.col = 2))
+grid.text("Event Type", y = 1, just = c("center","bottom"))
+grid.text("Top N Storm Event Types by Fatalities and Injuries", y = 1, just = c("center","top"))
+```
+
+
+##Summary:
+In economic terms, flood events account for the largest impact.  Prior to 1996, however, tornado events accounted for the largest economic impact. In terms of human health impact, tornados accounted for the greatest loss (both fatalities and injuries).  Interestingly, the majority of this loss occurred prior to 1996.  If we break economic impact down further we see that floods accounted for the greatest property damage while drought and flood related to the most crop damage.  When looking further into health impact, tornados still account for the majority of both fatalities and injuries but it is interesting to note that excessive heat accounted for the second most impact on fatalities.
+
+
+
