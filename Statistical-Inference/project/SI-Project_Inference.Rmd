@@ -1,0 +1,35 @@
+---
+title: "Evaluation and Inference of the ToothGrowth dataset"
+output:
+  html_document:
+    keep_md: true
+---
+
+```{r setoptions,echo = FALSE}
+library(knitr)
+opts_chunk$set(echo = TRUE, restult = "hide")
+```
+
+##by Michael Gregory
+
+###Overview: In this (part II) of the project I will analyze the ToothGrowth data in the R datasets package. 
+
+
+###Load the ToothGrowth data and perform some basic exploratory data analyses 
+perform an exploratory data analysis of at least a single plot or table highlighting basic features of the data?
+
+###Provide a basic summary of the data.
+
+
+###Use confidence intervals and/or hypothesis tests to compare tooth growth by supp and dose. (Only use the techniques from class, even if there's other approaches worth considering)
+Did the student perform some relevant confidence intervals and/or tests?
+
+
+###Conclusions:  and the assumptions needed for your conclusions. 
+
+
+Were the results of the tests and/or intervals interpreted in the context of the problem correctly? 
+Did the student describe the assumptions needed for their conclusions?
+
+
+
