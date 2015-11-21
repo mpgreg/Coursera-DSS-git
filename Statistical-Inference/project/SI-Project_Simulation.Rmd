@@ -10,28 +10,99 @@ library(knitr)
 opts_chunk$set(echo = TRUE, restult = "hide")
 ```
 
-##by Michael Gregory
+####by Michael Gregory
 
 ###Overview: In this project I will investigate the exponential distribution in R and compare it with the Central Limit Theorem.  I will compare the population and sample mean as well as the population and sample variance.
 
 ###Simulations: The exponential distribution will be simulated in R with rexp(n, lambda) where lambda is the rate parameter. 
 
--Using a lambda of .2, generate 1000 simulations of 40 random exponential values and also calculate the means of those 1000 simulations.
+-Using a lambda of .2, generate 1000 simulations of 40 random exponential values and also calculate the means and variances of those 1000 simulations.
+```{r}
+set.seed(11072015)
 
-
- I will use a lambda = 0.2 for all 1000 simulations.  I will investigate the distribution of averages of 40 exponentials. Note that you will need to do a thousand simulations.  
+nosim <- 1000
+n <- 40
+lambda <- 0.2
+sampleMatrix <- matrix(rexp(nosim * n, lambda), nosim)
+sampleMeans <- apply(sampleMatrix, 1, mean)
+sampleVars <- apply(sampleMatrix, 1, var)
+```
 
 ###Sample Mean versus Theoretical Mean: 
--The mean of exponential distribution is 1/lambda and the standard deviation is also 1/lambda.
+-From the exponential distribution we know that the distribution mean is 1/lambda.
+```{r}
+distMean <- 1/lambda
+distMean
+```
 
-Include figures with titles. In the figures, highlight the means you are comparing. Include text that explains the figures and what is shown on them, and provides appropriate numbers.
+-For the sample mean we know that:
+$$
+\bar X = \sum_{i=1}^n x_i p(x_i)
+$$
+where $p(x_i) = 1/n$
+
+We could use the mean() function in R but lets calculate it using the function.
+```{r}
+calcSampleMean <- sum(sampleMatrix) / (nosim * n)
+calcSampleMean
+sampleMean <- mean(sampleMatrix)
+sampleMean
+meanDiff <- round((calcSampleMean - sampleMean), 10)
+```
+
+Rounded to 10 decimal places we confirm that the difference between our calculation of the mean and R's mean() function is `r meanDiff`.  
+
+Likewise, we see that the sample mean (`r round(calcSampleMean,4)`) is a good approximation of the distribution mean (`r distMean`).  
+  
+-From a plot we can see that the distribution of the sample means appears to be centered around the distribution mean.
+```{r}
+par(mfrow = c(1,2))
+hist(sampleMatrix, main = "Histogram of Exponential Variables", xlab = "Exponential Variables")
+abline(v=distMean, lwd = 4, col = "red")
+legend("topright", "Distribution Mu = 5", lty=1, lwd=2.5, col= "red")
+
+hist(sampleMeans, main = "Histogram of Sample Means", xlab = "Sample Means")
+abline(v=distMean, lwd = 4, col = "red")
+```
+
+###Sample Variance versus Theoretical Variance: 
 
 
-###Sample Variance versus Theoretical Variance: Include figures (output from R) with titles. Highlight the variances you are comparing. Include text that explains your understanding of the differences of the variances.
+-From the exponential distribution we know that the distribution SD (sigma) is 1/lambda and the distribution variance is sigma^2.  
+```{r}
+distSD <- 1/lambda
+distVar <- distSD^2
+distVar
+```
+
+-For the sample variance, we could use R to calculate the sample variance but lets do it manually first.
+```{r}
+calcSampleVar <- sum((sampleMatrix - sampleMean)^2) / ((nosim * n) - 1)
+sampleVar <- var(c(sampleMatrix))
+round((calcSampleVar - sampleVar), 10)
+```
+Here we see that the sample variance (`r round(sampleVar, 4)`) is a good approximation of the distrbution variance (`r round(distVar, 4)`).  
+
+#Calculate the sample variances and graph them to see the distribution.
+
+```{r}
+
+sampleVar <- apply(sampleMatrix, 1, var)
+
+```
+
 
 
 ###Distribution: Via figures and text, explain how one can tell the distribution is approximately normal.
 
 ???Central Limit Theorem.  ???
+Include figures with titles. In the figures, highlight the means you are comparing. Include text that explains the figures and what is shown on them, and provides appropriate numbers.
 
+```{r}
+par(mfrow = c(1,2))
+hist(sampleMatrix, main = "Histogram of Probabilities of Exponential Variables", xlab = "Exponential Variables", prob = TRUE)
+curve(dexp(x,lambda), add=TRUE, col = "blue")
 
+hist(sampleMeans, main = "Histogram of Probabilities of Sample Means", xlab = "Sample Means", prob = TRUE)
+curve(dnorm(x, mean = sampleMean), add=TRUE, col = "blue")
+```

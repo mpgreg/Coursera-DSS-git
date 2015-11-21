@@ -5,10 +5,25 @@
 ## Written by: Michael Gregory
 ## Date: 07-Nov-2015
 
-##In this (part II) of the project Now in the second portion of the class, we're going to analyze the ToothGrowth data in the R datasets package. 
+##In this (part II) of the project I will analyze the ToothGrowth data in the R datasets package. 
 
 
-##Load the ToothGrowth data and perform some basic exploratory data analyses 
+##Load, explore and clean the data as necessary.
+###-Load the data
+library(datasets)
+data(ToothGrowth)
+
+###-Explore the data
+anyNA(ToothGrowth)
+summary(ToothGrowth)
+str(ToothGrowth)
+
+pairs(ToothGrowth)
+plot(hclust(dist(ToothGrowth)))
+
+
+perform an exploratory data analysis of at least a single plot or table highlighting basic features of the data?
+perform some basic exploratory data analyses 
 
 ##Provide a basic summary of the data.
 
@@ -16,8 +31,5 @@
 
 ##State your conclusions and the assumptions needed for your conclusions. 
 
-
-
-##setwd("~/Documents/School/coursera/data science/statistical inference//project")
 
 
